@@ -5,8 +5,9 @@
 package main
 
 import (
-	"bufio"
-	"os"
+	"fmt"
+	"math"
+	"math/rand"
 	"strings"
 )
 
@@ -17,12 +18,17 @@ const (
 	CyclesLimit = 1024 * 1024
 )
 
+var (
+	// Genes are the genes
+	Genes = [...]rune{'+', '-', '>', '<', '.', '[', ']'}
+)
+
 // Program is a program
 // https://github.com/cvhariharan/goBrainFuck
 type Program []rune
 
 // Execute executes a program
-func (p Program) Execute(size int) *strings.Builder {
+func (p Program) Execute(rng *rand.Rand, size int) *strings.Builder {
 	var (
 		memory [MemorySize]int
 		pc     int
@@ -36,10 +42,10 @@ func (p Program) Execute(size int) *strings.Builder {
 		opcode := p[pc]
 		switch opcode {
 		case '+':
-			memory[dc] += 1
+			memory[dc%MemorySize] += 1
 			pc++
 		case '-':
-			memory[dc] -= 1
+			memory[dc%MemorySize] -= 1
 			pc++
 		case '>':
 			dc++
@@ -50,13 +56,17 @@ func (p Program) Execute(size int) *strings.Builder {
 			}
 			pc++
 		case '.':
-			output.WriteRune(rune(memory[dc]))
+			m := memory[dc%MemorySize]
+			if m < 0 {
+				m = -m
+			}
+			output.WriteRune(Genes[m%len(Genes)])
 			if len([]rune(output.String())) == size {
 				return &output
 			}
 			pc++
 		case ',':
-			memory[dc] = p.input()
+			memory[dc] = rng.Intn(len(Genes))
 			pc++
 		case '[':
 			if memory[dc] == 0 {
@@ -110,15 +120,44 @@ func (p Program) findMatchingBackward(position int) int {
 	return -1
 }
 
-func (p Program) input() int {
-	reader := bufio.NewReader(os.Stdin)
-	char, _, err := reader.ReadRune()
-	if err != nil {
-		panic(err)
+func Generate(depth, limit int, rng *rand.Rand, program *strings.Builder) {
+	if depth > limit {
+		return
 	}
-	return int(char)
+	count := rng.Intn(128) + 1
+	for i := 0; i < count; i++ {
+		switch rng.Intn(10) {
+		case 0:
+			count := int(math.Abs(rng.NormFloat64()*128)) + 1
+			for j := 0; j < count; j++ {
+				program.WriteRune('+')
+			}
+		case 1:
+			count := int(math.Abs(rng.NormFloat64()*128)) + 1
+			for j := 0; j < count; j++ {
+				program.WriteRune('-')
+			}
+		case 2, 3:
+			program.WriteRune('>')
+		case 4, 5:
+			program.WriteRune('<')
+		case 6, 7:
+			program.WriteRune('.')
+		case 8, 9:
+			program.WriteRune('[')
+			Generate(depth+1, limit, rng, program)
+			program.WriteRune(']')
+		}
+	}
 }
 
 func main() {
-
+	rng := rand.New(rand.NewSource(1))
+	program := strings.Builder{}
+	Generate(0, 2, rng, &program)
+	fmt.Println(program.String())
+	fmt.Println()
+	p := Program(program.String())
+	output := p.Execute(rng, 33)
+	fmt.Println(output.String())
 }
