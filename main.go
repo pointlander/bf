@@ -158,7 +158,7 @@ func Generate(depth, limit int, rng *rand.Rand, program *strings.Builder) {
 // Vector is a vector
 type Vector struct {
 	Vector [256]float32
-	Symbol byte
+	Symbol [8]byte
 }
 
 func main() {
@@ -179,7 +179,9 @@ func main() {
 		for j := range pool[i].Vector {
 			pool[i].Vector[j] = rng.Float32()
 		}
-		pool[i].Symbol = byte(rng.Intn(256))
+		for j := range pool[i].Symbol {
+			pool[i].Symbol[j] = byte(rng.Intn(256))
+		}
 	}
 	m.Add(0)
 	for i := 0; i < 4*4094; i++ {
@@ -193,14 +195,14 @@ func main() {
 				}
 			}
 		}
-		if pool[v].Symbol&1 == 0 {
+		if pool[v].Symbol[row]&1 == 0 {
 			head = (head + 1) % len(tape)
 		} else {
 			head = (head - 1 + len(tape)) % len(tape)
 		}
-		tape[head] = tape[head] ^ pool[v].Symbol
+		tape[head] = tape[head] ^ pool[v].Symbol[row]
 		index = (index + 1) % len(pool)
-		pool[index].Symbol = tape[head]
+		pool[index].Symbol[row] = tape[head]
 		rows = append(rows, plotter.XY{X: float64(i), Y: float64(row)})
 		heads = append(heads, plotter.XY{X: float64(i), Y: float64(head)})
 		values = append(values, plotter.XY{X: float64(i), Y: float64(tape[head])})
