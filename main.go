@@ -128,12 +128,12 @@ func Generate(depth, limit int, rng *rand.Rand, program *strings.Builder) {
 	for i := 0; i < count; i++ {
 		switch rng.Intn(10) {
 		case 0:
-			count := int(math.Abs(rng.NormFloat64()*128)) + 1
+			count := int(math.Abs(rng.NormFloat64()*16)) + 1
 			for j := 0; j < count; j++ {
 				program.WriteRune('+')
 			}
 		case 1:
-			count := int(math.Abs(rng.NormFloat64()*128)) + 1
+			count := int(math.Abs(rng.NormFloat64()*16)) + 1
 			for j := 0; j < count; j++ {
 				program.WriteRune('-')
 			}
@@ -151,13 +151,49 @@ func Generate(depth, limit int, rng *rand.Rand, program *strings.Builder) {
 	}
 }
 
+// Vector is a vector
+type Vector struct {
+	Vector [256]float32
+	Symbol byte
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
-	program := strings.Builder{}
+	/*program := strings.Builder{}
 	Generate(0, 2, rng, &program)
 	fmt.Println(program.String())
 	fmt.Println()
 	p := Program(program.String())
 	output := p.Execute(rng, 33)
-	fmt.Println(output.String())
+	fmt.Println(output.String())*/
+	m, tape, head, pool, index := NewMixer(), [1024]byte{}, 0, [1024]Vector{}, 0
+	for i := range pool {
+		for j := range pool[i].Vector {
+			pool[i].Vector[j] = rng.Float32()
+		}
+		pool[i].Symbol = byte(rng.Intn(256))
+	}
+	m.Add(0)
+	for i := 0; i < 4094; i++ {
+		vector := [256]float32{}
+		m.Mix(&vector)
+		max, v := float32(0.0), 0
+		for key, value := range pool {
+			cs := CS(vector[:], value.Vector[:])
+			if cs > max {
+				max, v = cs, key
+			}
+		}
+		if pool[v].Symbol&1 == 0 {
+			head = (head + 1) % len(tape)
+		} else {
+			head = (head - 1 + len(tape)) % len(tape)
+		}
+		tape[head] = tape[head] ^ pool[v].Symbol
+		index = (index + 1) % len(pool)
+		//pool[index].Vector = vector
+		pool[index].Symbol = tape[head]
+		fmt.Println(head, tape[head])
+		m.Add(tape[head])
+	}
 }
