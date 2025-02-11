@@ -171,6 +171,7 @@ func main() {
 	output := p.Execute(rng, 33)
 	fmt.Println(output.String())*/
 
+	rows := make(plotter.XYs, 0, 8)
 	heads := make(plotter.XYs, 0, 8)
 	values := make(plotter.XYs, 0, 8)
 	m, tape, head, pool, index := NewMixer(), [1024]byte{}, 0, [1024]Vector{}, 0
@@ -200,10 +201,31 @@ func main() {
 		tape[head] = tape[head] ^ pool[v].Symbol
 		index = (index + 1) % len(pool)
 		pool[index].Symbol = tape[head]
-		_ = row
+		rows = append(rows, plotter.XY{X: float64(i), Y: float64(row)})
 		heads = append(heads, plotter.XY{X: float64(i), Y: float64(head)})
 		values = append(values, plotter.XY{X: float64(i), Y: float64(tape[head])})
 		m.Add(tape[head])
+	}
+
+	{
+		p := plot.New()
+
+		p.Title.Text = "row vs time"
+		p.X.Label.Text = "time"
+		p.Y.Label.Text = "row"
+
+		scatter, err := plotter.NewScatter(rows)
+		if err != nil {
+			panic(err)
+		}
+		scatter.GlyphStyle.Radius = vg.Length(1)
+		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+		p.Add(scatter)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "rows.png")
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	{
