@@ -5,10 +5,14 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 )
 
 const (
@@ -166,6 +170,9 @@ func main() {
 	p := Program(program.String())
 	output := p.Execute(rng, 33)
 	fmt.Println(output.String())*/
+
+	heads := make(plotter.XYs, 0, 8)
+	values := make(plotter.XYs, 0, 8)
 	m, tape, head, pool, index := NewMixer(), [1024]byte{}, 0, [1024]Vector{}, 0
 	for i := range pool {
 		for j := range pool[i].Vector {
@@ -174,14 +181,15 @@ func main() {
 		pool[i].Symbol = byte(rng.Intn(256))
 	}
 	m.Add(0)
-	for i := 0; i < 4094; i++ {
-		vector := [256]float32{}
-		m.Mix(&vector)
-		max, v := float32(0.0), 0
-		for key, value := range pool {
-			cs := CS(vector[:], value.Vector[:])
-			if cs > max {
-				max, v = cs, key
+	for i := 0; i < 4*4094; i++ {
+		output := m.Mix()
+		max, v, row := float32(0.0), 0, 0
+		for r := 0; r < output.Rows; r++ {
+			for key, value := range pool {
+				cs := CS(output.Data[r*output.Cols:(r+1)*output.Cols], value.Vector[:])
+				if cs > max {
+					max, v, row = cs, key, r
+				}
 			}
 		}
 		if pool[v].Symbol&1 == 0 {
@@ -191,9 +199,53 @@ func main() {
 		}
 		tape[head] = tape[head] ^ pool[v].Symbol
 		index = (index + 1) % len(pool)
-		//pool[index].Vector = vector
 		pool[index].Symbol = tape[head]
-		fmt.Println(head, tape[head])
+		_ = row
+		heads = append(heads, plotter.XY{X: float64(i), Y: float64(head)})
+		values = append(values, plotter.XY{X: float64(i), Y: float64(tape[head])})
 		m.Add(tape[head])
 	}
+
+	{
+		p := plot.New()
+
+		p.Title.Text = "head vs time"
+		p.X.Label.Text = "time"
+		p.Y.Label.Text = "head"
+
+		scatter, err := plotter.NewScatter(heads)
+		if err != nil {
+			panic(err)
+		}
+		scatter.GlyphStyle.Radius = vg.Length(1)
+		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+		p.Add(scatter)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "heads.png")
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	{
+		p := plot.New()
+
+		p.Title.Text = "value vs time"
+		p.X.Label.Text = "time"
+		p.Y.Label.Text = "value"
+
+		scatter, err := plotter.NewScatter(values)
+		if err != nil {
+			panic(err)
+		}
+		scatter.GlyphStyle.Radius = vg.Length(1)
+		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+		p.Add(scatter)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "values.png")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 }

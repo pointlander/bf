@@ -152,9 +152,10 @@ func softmax(values []float32) {
 }
 
 // SelfAttention computes the self attention of Q, K, V
-func SelfAttention(input Matrix, output *[256]float32) {
+func SelfAttention(input Matrix) Matrix {
 	values := make([]float32, input.Rows)
 	V := input.T()
+	output := NewMatrix(V.Rows, input.Rows)
 	for i := 0; i < input.Rows; i++ {
 		K := input.Data[i*input.Cols : (i+1)*input.Cols]
 		for j := 0; j < input.Rows; j++ {
@@ -165,9 +166,10 @@ func SelfAttention(input Matrix, output *[256]float32) {
 
 		for j := 0; j < V.Rows; j++ {
 			V := V.Data[j*V.Cols : (j+1)*V.Cols]
-			output[j] += vector.Dot(values, V)
+			output.Data = append(output.Data, vector.Dot(values, V))
 		}
 	}
+	return output
 }
 
 // CS is float32 cosine similarity
